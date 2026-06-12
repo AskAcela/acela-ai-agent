@@ -16,6 +16,8 @@ llm_fallback_prompt = ChatPromptTemplate.from_messages([
     ])
 
 
+from logger import logger
+
 # Chain
 llm_chain = llm_fallback_prompt | llm | StrOutputParser()
 
@@ -29,6 +31,11 @@ def llm_fallback(state):
     Returns:
         state (dict): New key added to state, generation, that contains LLM generation
     """
+    logger.info("Node: LLM Fallback (No Vector Store)")
     messages = state["messages"]
+    logger.info(f"Invoking LLM fallback chain for query: {messages[-1].content}")
     generation = llm_chain.invoke({"messages": messages})
+    logger.info("Fallback generation completed.")
+    logger.debug(f"Fallback generation: {generation}")
     return {"messages": messages, "generation": generation}
+

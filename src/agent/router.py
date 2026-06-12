@@ -11,7 +11,7 @@ from agent import llm
 router_preamble = """You are a query router. The vectorstore contains Celo (Ethereum L2) documentation
 including platform contracts and developer guides.
 
-Route to VECTORSTORE for questions about Celo's architecture, contracts, or developer tooling.
+Route to VECTORSTORE for questions about Celo, for example tokens, contracts, SDKs, dapps, or developer tooling.
 Route to WEB SEARCH for real-time data, recent news, or non-Celo topics that need current info.
 Route to LLM FALLBACK for general knowledge questions the LLM can answer without external sources
 (e.g. explaining coding concepts, EVM basics, or general blockchain fundamentals).
@@ -27,6 +27,8 @@ route_prompt = ChatPromptTemplate.from_messages(
 
 question_router = route_prompt | llm | StrOutputParser()
 
+from logger import logger
+
 def route_question(state):
     """
     Route question to web search or RAG.
@@ -37,14 +39,22 @@ def route_question(state):
     Returns:
         str: Next node to call
     """
-
+    logger.info("Decision Node: Route Question")
     messages = state['messages']
+    question = messages[-1].content
+    logger.info(f"Routing query: '{question}'")
+
     datasource = question_router.invoke({"messages": messages})
+    datasource = datasource.strip().lower()
 
     # Choose datasource
-    if datasource == "web_search":
+    if "web_search" in datasource:
+        logger.info("Routing decision: Route to WEB SEARCH.")
         return "web_search"
-    elif datasource == "vectorstore":
+    elif "vectorstore" in datasource:
+        logger.info("Routing decision: Route to VECTORSTORE (RAG).")
         return "vectorstore"
     else:
+        logger.info("Routing decision: Route to LLM FALLBACK.")
         return "llm_fallback"
+

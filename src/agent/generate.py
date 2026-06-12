@@ -16,6 +16,8 @@ generate_prompt = ChatPromptTemplate.from_messages(
     )
 
 
+from logger import logger
+
 # Chain
 rag_chain = generate_prompt | llm
 
@@ -29,13 +31,17 @@ def generate(state):
     Returns:
         state (dict): New key added to state, generation, that contains LLM generation
     """
+    logger.info("Node: Generate answer using RAG")
     messages = state["messages"]
     documents = state["documents"]
     if not isinstance(documents, list):
         documents = [documents]
 
+    logger.info(f"Invoking RAG chain with {len(documents)} context document(s)...")
     # RAG generation
     generation = rag_chain.invoke({"documents": documents, "messages": messages})
+    logger.info("Answer generated successfully.")
+    logger.debug(f"Generation output: {generation}")
     return {"documents": documents, "messages": messages, "generation": generation}
 
 def decide_to_generate(state):
@@ -48,12 +54,16 @@ def decide_to_generate(state):
     Returns:
         str: Binary decision for next node to call
     """
+    logger.info("Decision Node: Decide to generate or web search")
     filtered_documents = state["documents"]
 
     if not filtered_documents:
         # All documents have been filtered check_relevance
         # We will re-generate a new query
+        logger.info("Decision: No relevant documents found. Routing to web_search.")
         return "web_search"
     else:
         # We have relevant documents, so generate answer
+        logger.info("Decision: Relevant documents found. Routing to generate.")
         return "generate"
+

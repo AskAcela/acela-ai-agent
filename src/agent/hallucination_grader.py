@@ -60,6 +60,9 @@ answer_prompt = ChatPromptTemplate.from_messages(
 answer_grader = answer_prompt | structured_answer_grader_llm
 
 
+from logger import logger
+
+
 def grade_generation_v_documents_and_question(state):
     """
     Determines whether the generation is grounded in the document and answers question.
@@ -70,12 +73,12 @@ def grade_generation_v_documents_and_question(state):
     Returns:
         str: Decision for next node to call
     """
-
-    print("---CHECK HALLUCINATIONS---")
+    logger.info("Decision Node: Grade generation vs documents and question")
     question = state["messages"][-1].content
     documents = state["documents"]
     generation = state["generation"]
 
+    logger.info("Checking for hallucinations (groundedness)...")
     score = hallucination_grader.invoke(
         {"documents": documents, "generation": generation}
     )
@@ -83,11 +86,16 @@ def grade_generation_v_documents_and_question(state):
 
     # Check hallucination
     if grade == "yes":
+        logger.info("Decision: Generation is grounded in documents (no hallucination).")
+        logger.info("Grading generation vs original question...")
         score = answer_grader.invoke({"question": question, "generation": generation})
         grade = score.binary_score
         if grade == "yes":
+            logger.info("Decision: Generation addresses the question. Route to END (useful).")
             return "useful"
         else:
+            logger.info("Decision: Generation does not address the question. Route to web_search (not useful).")
             return "not useful"
     else:
-        return "not supported"
+        logger.info("Decision: Generation is NOT grounded in documents. Route to generate (not supported).")
+        return "not supported"

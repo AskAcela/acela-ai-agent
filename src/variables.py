@@ -3,8 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from logger import logger
+
 def validate_environment():
     """Validates that all required environment variables are set and not empty."""
+    logger.info("Validating environment variables...")
     
     required_vars = [
         "LANGCHAIN_TRACING_V2",
@@ -23,8 +26,10 @@ def validate_environment():
             missing_vars.append(var)
     
     if missing_vars:
-        print(" should railse ============================================================")
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         raise ValueError(
             f"Missing or empty required environment variables: {', '.join(missing_vars)}. "
             f"Please ensure they are set in your .env file."
         )
+    logger.info("Environment variables validation successful.")
+

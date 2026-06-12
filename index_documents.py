@@ -1,10 +1,11 @@
+from logger import logger
 from vectorestore import index
 from dotenv import load_dotenv
 
-print("============================================================")
+logger.info("Initializing document indexing process...")
 
 load_dotenv()
 
 index()
 
-print("============================================================")
+logger.info("Document indexing process finished.")

@@ -33,6 +33,9 @@ grade_prompt = ChatPromptTemplate.from_messages(
 retrieval_grader = grade_prompt | structured_llm_grader
 
 
+from logger import logger
+
+
 def grade_documents(state):
     """
     Determines whether the retrieved documents are relevant to the question.
@@ -43,21 +46,25 @@ def grade_documents(state):
     Returns:
         state (dict): Updates documents key with only filtered relevant documents
     """
-
-    print("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
+    logger.info("Node: Grade documents relevance to question")
     messages = state["messages"]
     question = messages[-1].content
     documents = state["documents"]
 
+    logger.info(f"Grading relevance of {len(documents)} retrieved document(s) for query: {question}")
     # Score each doc
     filtered_docs = []
-    for d in documents:
+    for i, d in enumerate(documents):
         score = retrieval_grader.invoke(
             {"question": question, "document": d.page_content}
         )
         grade = score.binary_score
         if grade == "yes":
+            logger.info(f"Document {i+1}: RELEVANT")
             filtered_docs.append(d)
         else:
+            logger.info(f"Document {i+1}: NOT RELEVANT")
             continue
+    logger.info(f"Filtering completed. {len(filtered_docs)}/{len(documents)} documents retained as relevant.")
     return {"documents": filtered_docs, "messages": messages}
+
