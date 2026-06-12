@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from logger import logger
+from app.logger import logger
 
 def validate_environment():
     """Validates that all required environment variables are set and not empty."""

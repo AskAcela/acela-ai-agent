@@ -2,7 +2,8 @@
 from langchain_core.utils.pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 
-from agent import llm
+from app.agent import llm
+
 # Hallucination grader
 # Data model
 class GradeHallucinations(BaseModel):
@@ -60,7 +61,7 @@ answer_prompt = ChatPromptTemplate.from_messages(
 answer_grader = answer_prompt | structured_answer_grader_llm
 
 
-from logger import logger
+from app.logger import logger
 
 
 def grade_generation_v_documents_and_question(state):
@@ -98,4 +99,4 @@ def grade_generation_v_documents_and_question(state):
             return "not useful"
     else:
         logger.info("Decision: Generation is NOT grounded in documents. Route to generate (not supported).")
-        return "not supported"
+        return "not supported"

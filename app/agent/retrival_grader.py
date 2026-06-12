@@ -1,7 +1,7 @@
 from langchain_core.utils.pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 
-from agent import llm
+from app.agent import llm
 
 ### Retrieval Grader
 
@@ -33,7 +33,7 @@ grade_prompt = ChatPromptTemplate.from_messages(
 retrieval_grader = grade_prompt | structured_llm_grader
 
 
-from logger import logger
+from app.logger import logger
 
 
 def grade_documents(state):

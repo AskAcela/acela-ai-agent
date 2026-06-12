@@ -1,6 +1,8 @@
+from app.agent import llm
+from app.logger import logger
+
 from langchain_core.prompts import ChatPromptTemplate
 
-from agent import llm
 
 # Preamble 
 generate_preamble = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise."""
@@ -16,7 +18,6 @@ generate_prompt = ChatPromptTemplate.from_messages(
     )
 
 
-from logger import logger
 
 # Chain
 rag_chain = generate_prompt | llm

@@ -1,7 +1,7 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from agent import llm
+from app.agent import llm
 
 ### LLM fallback
 
@@ -16,7 +16,7 @@ llm_fallback_prompt = ChatPromptTemplate.from_messages([
     ])
 
 
-from logger import logger
+from app.logger import logger
 
 # Chain
 llm_chain = llm_fallback_prompt | llm | StrOutputParser()

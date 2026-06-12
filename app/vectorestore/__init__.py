@@ -6,7 +6,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
 
-from logger import logger
+from app.logger import logger
 
 vectorstore = None
 retriever =     None

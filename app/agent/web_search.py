@@ -2,7 +2,7 @@ from langchain_core.documents import Document
 from langchain_tavily import TavilySearch
 
 
-from logger import logger
+from app.logger import logger
 
 # Web search
 

@@ -1,5 +1,5 @@
-from logger import logger
-from vectorestore import index
+from app.logger import logger
+from app.vectorestore import index
 from dotenv import load_dotenv
 
 logger.info("Initializing document indexing process...")
