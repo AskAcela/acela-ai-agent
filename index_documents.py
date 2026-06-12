@@ -8,4 +8,4 @@ load_dotenv()
 
 index()
 
-logger.info("Document indexing process finished.")
+logger.info("Document indexing process finished.")

@@ -1,7 +1,7 @@
 from logger import logger
 from variables import validate_environment
 from utils import convert_messages
-from app import createAgentGraph
+from agent_graph import createAgentGraph
 
 from fastapi import FastAPI
 from pydantic import BaseModel
