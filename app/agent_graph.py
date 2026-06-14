@@ -35,6 +35,7 @@ def createAgentGraph():
     workflow = StateGraph(GraphState)
 
     # Define the nodes
+    workflow.add_node("question_router", question_router)  # route question based on content
     workflow.add_node("retrieve", retrieve)  # retrieve
     workflow.add_node("grade_documents", grade_documents)  # grade documents
     workflow.add_node("web_search", web_search)  # web search
@@ -43,9 +44,9 @@ def createAgentGraph():
     workflow.add_node("llm_fallback", llm_fallback)  # llm
 
     # Build graph
+    workflow.add_edge(START, "question_router")
     workflow.add_conditional_edges(
-        START,
-        question_router,
+        "question_router",
         route_question,
         {
             "vectorstore": "retrieve",
@@ -55,6 +56,8 @@ def createAgentGraph():
     )
     workflow.add_edge("retrieve", "grade_documents")
     workflow.add_edge("web_search", "generate")
+    workflow.add_edge("llm_fallback", END)
+    
     workflow.add_conditional_edges(
         "grade_documents",
         decide_to_generate,
@@ -63,6 +66,7 @@ def createAgentGraph():
             "generate": "generate",
         },
     )
+    
     workflow.add_edge("generate", "grade_generation")
     workflow.add_conditional_edges(
         "grade_generation",
@@ -73,7 +77,6 @@ def createAgentGraph():
             "useful": END,
         },
     )
-    workflow.add_edge("llm_fallback", END)
 
     # Compile
     app = workflow.compile()
