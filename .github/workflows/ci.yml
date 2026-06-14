@@ -46,6 +46,9 @@ jobs:
           script: |
             cd /var/www/acela-ai-agent
 
+            eval "$(ssh-agent -s)"
+            ssh-add ~/github_keys
+
             echo "Pulling latest changes..."
             git pull origin main
 
