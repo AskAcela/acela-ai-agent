@@ -8,7 +8,7 @@ from app.agent.web_search import web_search
 from app.agent.generate import generate
 from app.agent.llm_fallback import llm_fallback
 from app.agent.router import question_router, route_question
-from app.agent.hallucination_grader import grade_generation_v_documents_and_question
+from app.agent.hallucination_grader import grade_generation, route_generation
 from app.agent.generate import decide_to_generate
 from typing import Annotated
 from langgraph.graph.message import add_messages
@@ -28,6 +28,7 @@ class GraphState(TypedDict):
     generation: str
     total_tokens: int
     grading_generation: str
+    hallucination_grade: str
 
 
 def createAgentGraph():
@@ -38,6 +39,7 @@ def createAgentGraph():
     workflow.add_node("grade_documents", grade_documents)  # grade documents
     workflow.add_node("web_search", web_search)  # web search
     workflow.add_node("generate", generate)  # rag
+    workflow.add_node("grade_generation", grade_generation)  # hallucination + answer grading
     workflow.add_node("llm_fallback", llm_fallback)  # llm
 
     # Build graph
@@ -61,9 +63,10 @@ def createAgentGraph():
             "generate": "generate",
         },
     )
+    workflow.add_edge("generate", "grade_generation")
     workflow.add_conditional_edges(
-        "generate",
-        grade_generation_v_documents_and_question,
+        "grade_generation",
+        route_generation,
         {
             "not supported": "generate",  # Hallucinations: re-generate
             "not useful": "web_search",  # Fails to answer question: fall-back to web-search
