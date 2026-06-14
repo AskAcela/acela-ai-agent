@@ -7,7 +7,7 @@ from app.agent.retrival_grader import grade_documents
 from app.agent.web_search import web_search
 from app.agent.generate import generate
 from app.agent.llm_fallback import llm_fallback
-from app.agent.router import route_question
+from app.agent.router import question_router, route_question
 from app.agent.hallucination_grader import grade_generation_v_documents_and_question
 from app.agent.generate import decide_to_generate
 from typing import Annotated
@@ -27,6 +27,7 @@ class GraphState(TypedDict):
     documents: list
     generation: str
     total_tokens: int
+    grading_generation: str
 
 
 def createAgentGraph():
@@ -42,6 +43,7 @@ def createAgentGraph():
     # Build graph
     workflow.add_conditional_edges(
         START,
+        question_router,
         route_question,
         {
             "vectorstore": "retrieve",

@@ -1,7 +1,7 @@
 
 from langchain_core.utils.pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
-from langgraph.types import Command
+from langchain_core.output_parsers import StrOutputParser
 
 from app.agent import llm
 
@@ -16,7 +16,7 @@ class GradeHallucinations(BaseModel):
 
 
 # Preamble
-halucination_grader_preamble = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n
+hallucination_grader_preamble = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n
 Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
 
 # LLM with function call
@@ -27,7 +27,7 @@ structured_hallucination_grader_llm = llm.with_structured_output(
 # Prompt
 hallucination_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", halucination_grader_preamble),
+        ("system", hallucination_grader_preamble),
         ("human", "Set of facts: \n\n {documents} \n\n LLM generation: {generation}"),
     ]
 )
@@ -65,17 +65,8 @@ answer_grader = answer_prompt | structured_answer_grader_llm
 from app.logger import logger
 
 
-def grade_generation_v_documents_and_question(state):
-    """
-    Determines whether the generation is grounded in the document and answers question.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        str: Decision for next node to call
-    """
-    logger.info("Decision Node: Grade generation vs documents and question")
+def grade_generation(state):
+    logger.info("Node: Grade generation vs documents and question")
     question = state["messages"][-1].content
     documents = state["documents"]
     generation = state["generation"]
@@ -88,25 +79,28 @@ def grade_generation_v_documents_and_question(state):
     total_tokens += score.usage_metadata["total_tokens"]
     grade = score.binary_score
 
-    # Check hallucination
     if grade == "yes":
-        logger.info("Decision: Generation is grounded in documents (no hallucination).")
-        logger.info("Grading generation vs original question...")
+        logger.info("Generation is grounded in documents. Checking answer quality...")
         score = answer_grader.invoke({"question": question, "generation": generation})
         total_tokens += score.usage_metadata["total_tokens"]
-        grade = score.binary_score
-        if grade == "yes":
-            logger.info("Decision: Generation addresses the question. Route to END (useful).")
-            return Command(goto="useful", update={
-                "total_tokens": total_tokens
-            })
-        else:
-            logger.info("Decision: Generation does not address the question. Route to web_search (not useful).")
-            return Command(goto="not useful", update={
-                "total_tokens": total_tokens
-            })
+        decision = "useful" if score.binary_score == "yes" else "not useful"
     else:
-        logger.info("Decision: Generation is NOT grounded in documents. Route to generate (not supported).")
-        return Command(goto="not supported", update={
-            "total_tokens": total_tokens
-        })
+        decision = "not supported"
+
+    return {
+        "hallucination_grade": decision,
+        "total_tokens": total_tokens,
+    }
+
+
+def route_generation(state):
+    decision = state["hallucination_grade"]
+    if decision == "useful":
+        logger.info("Routing decision: Generation addresses the question. Route to END.")
+        return "useful"
+    elif decision == "not useful":
+        logger.info("Routing decision: Generation does not address the question. Route to web_search.")
+        return "not useful"
+    else:
+        logger.info("Routing decision: Generation is NOT grounded in documents. Route to generate.")
+        return "not supported"
