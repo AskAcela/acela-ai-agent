@@ -52,10 +52,16 @@ def chat(req: ChatRequest):
         {
             "messages": history,
             "documents": [],
-            "generation": ""
+            "generation": "",
+            "total_tokens": 0
         }
     )           
     logger.info("Agent graph execution completed.")
     logger.debug(f"Response: {result}")
     
-    return result["generation"]
+    return {
+        "message": result["generation"].content,
+        "usage": {
+            "total_tokens": result["total_tokens"],
+        }
+    }

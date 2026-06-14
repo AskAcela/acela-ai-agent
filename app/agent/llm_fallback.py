@@ -32,9 +32,11 @@ def llm_fallback(state):
     """
     logger.info("Node: LLM Fallback (No Vector Store)")
     messages = state["messages"]
+    total_tokens = state["total_tokens"]
     logger.info(f"Invoking LLM fallback chain for query: {messages[-1].content}")
     generation = llm_chain.invoke({"messages": messages})
+    total_tokens += generation.usage_metadata["total_tokens"]
     logger.info("Fallback generation completed.")
     logger.debug(f"Fallback generation: {generation}")
-    return {"messages": messages, "generation": generation}
+    return {"messages": messages, "generation": generation, "total_tokens": total_tokens}
 

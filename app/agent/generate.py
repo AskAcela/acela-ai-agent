@@ -35,15 +35,17 @@ def generate(state):
     logger.info("Node: Generate answer using RAG")
     messages = state["messages"]
     documents = state["documents"]
+    total_tokens = state["total_tokens"]
     if not isinstance(documents, list):
         documents = [documents]
 
     logger.info(f"Invoking RAG chain with {len(documents)} context document(s)...")
     # RAG generation
     generation = rag_chain.invoke({"documents": documents, "messages": messages})
+    total_tokens += generation.usage_metadata["total_tokens"]
     logger.info("Answer generated successfully.")
     logger.debug(f"Generation output: {generation}")
-    return {"documents": documents, "messages": messages, "generation": generation}
+    return {"documents": documents, "messages": messages, "generation": generation, "total_tokens": total_tokens}
 
 def decide_to_generate(state):
     """

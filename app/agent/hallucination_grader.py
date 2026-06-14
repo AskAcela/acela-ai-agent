@@ -1,6 +1,7 @@
 
 from langchain_core.utils.pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
+from langgraph.types import Command
 
 from app.agent import llm
 
@@ -78,11 +79,13 @@ def grade_generation_v_documents_and_question(state):
     question = state["messages"][-1].content
     documents = state["documents"]
     generation = state["generation"]
+    total_tokens = state["total_tokens"]
 
     logger.info("Checking for hallucinations (groundedness)...")
     score = hallucination_grader.invoke(
         {"documents": documents, "generation": generation}
     )
+    total_tokens += score.usage_metadata["total_tokens"]
     grade = score.binary_score
 
     # Check hallucination
@@ -90,13 +93,20 @@ def grade_generation_v_documents_and_question(state):
         logger.info("Decision: Generation is grounded in documents (no hallucination).")
         logger.info("Grading generation vs original question...")
         score = answer_grader.invoke({"question": question, "generation": generation})
+        total_tokens += score.usage_metadata["total_tokens"]
         grade = score.binary_score
         if grade == "yes":
             logger.info("Decision: Generation addresses the question. Route to END (useful).")
-            return "useful"
+            return Command(goto="useful", update={
+                "total_tokens": total_tokens
+            })
         else:
             logger.info("Decision: Generation does not address the question. Route to web_search (not useful).")
-            return "not useful"
+            return Command(goto="not useful", update={
+                "total_tokens": total_tokens
+            })
     else:
         logger.info("Decision: Generation is NOT grounded in documents. Route to generate (not supported).")
-        return "not supported"
+        return Command(goto="not supported", update={
+            "total_tokens": total_tokens
+        })

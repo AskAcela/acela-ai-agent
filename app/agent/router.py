@@ -1,6 +1,7 @@
 from langchain_core import messages
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langgraph.types import Command
 
 from app.agent import llm
 
@@ -41,20 +42,27 @@ def route_question(state):
     """
     logger.info("Decision Node: Route Question")
     messages = state['messages']
+    total_tokens = state["total_tokens"]
     question = messages[-1].content
     logger.info(f"Routing query: '{question}'")
 
     datasource = question_router.invoke({"messages": messages})
+    total_tokens += datasource.usage_metadata["total_tokens"]
     datasource = datasource.strip().lower()
 
     # Choose datasource
     if "web_search" in datasource:
         logger.info("Routing decision: Route to WEB SEARCH.")
-        return "web_search"
+        return Command(goto="web_search", update={
+            "total_tokens": total_tokens
+        })
     elif "vectorstore" in datasource:
         logger.info("Routing decision: Route to VECTORSTORE (RAG).")
-        return "vectorstore"
+        return Command(goto="vectorstore", update={
+            "total_tokens": total_tokens
+        })
     else:
         logger.info("Routing decision: Route to LLM FALLBACK.")
-        return "llm_fallback"
-
+        return Command(goto="llm_fallback", update={
+            "total_tokens": total_tokens
+        })

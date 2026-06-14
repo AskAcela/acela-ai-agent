@@ -26,6 +26,7 @@ class GraphState(TypedDict):
     messages: Annotated[list, add_messages]
     documents: list
     generation: str
+    total_tokens: int
 
 
 def createAgentGraph():

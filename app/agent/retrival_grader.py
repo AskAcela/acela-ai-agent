@@ -50,6 +50,7 @@ def grade_documents(state):
     messages = state["messages"]
     question = messages[-1].content
     documents = state["documents"]
+    total_tokens = state["total_tokens"]
 
     logger.info(f"Grading relevance of {len(documents)} retrieved document(s) for query: {question}")
     # Score each doc
@@ -58,6 +59,7 @@ def grade_documents(state):
         score = retrieval_grader.invoke(
             {"question": question, "document": d.page_content}
         )
+        total_tokens += score.usage_metadata["total_tokens"]
         grade = score.binary_score
         if grade == "yes":
             logger.info(f"Document {i+1}: RELEVANT")
@@ -66,5 +68,5 @@ def grade_documents(state):
             logger.info(f"Document {i+1}: NOT RELEVANT")
             continue
     logger.info(f"Filtering completed. {len(filtered_docs)}/{len(documents)} documents retained as relevant.")
-    return {"documents": filtered_docs, "messages": messages}
+    return {"documents": filtered_docs, "messages": messages, "total_tokens": total_tokens}
 
