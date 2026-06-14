@@ -4,6 +4,7 @@ from app.utils import convert_messages
 from app.agent_graph import createAgentGraph
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 
@@ -13,6 +14,19 @@ logger.info("Initializing system...")
 validate_environment()
 
 server = FastAPI()
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://askacela.xyz"
+]
+server.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,           # Allowed domains
+    allow_credentials=True,         # Allow cookies and auth headers
+    allow_methods=["*"],             # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],             # Allow all request headers
+)
+
 logger.info("FastAPI server created. Loading agent graph...")
 agent_graph = createAgentGraph()
 logger.info("Agent graph loaded successfully.")
