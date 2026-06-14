@@ -1,7 +1,8 @@
 from langchain_core.messages import (
     HumanMessage,
     AIMessage,
-    SystemMessage
+    SystemMessage,
+    ToolMessage
 )
 
 def convert_messages(messages):
@@ -10,14 +11,19 @@ def convert_messages(messages):
 
     for msg in messages:
 
-        if msg.role == "user":
+        if msg.role == "user" or msg.role == "human":
             result.append(
                 HumanMessage(content=msg.content)
             )
 
-        elif msg.role == "assistant":
+        elif msg.role == "assistant" or msg.role == "ai":
             result.append(
                 AIMessage(content=msg.content)
+            )
+
+        elif msg.role == "tool":
+            result.append(
+                ToolMessage(content=msg.content)
             )
 
         elif msg.role == "system":
