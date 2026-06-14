@@ -26,7 +26,7 @@ route_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-question_router = route_prompt | llm | StrOutputParser()
+question_router = route_prompt | llm
 
 from app.logger import logger
 
@@ -46,8 +46,9 @@ def route_question(state):
     question = messages[-1].content
     logger.info(f"Routing query: '{question}'")
 
-    datasource = question_router.invoke({"messages": messages})
-    total_tokens += datasource.usage_metadata["total_tokens"]
+    result = question_router.invoke({"messages": messages})
+    datasource = StrOutputParser()(result)
+    total_tokens += result.usage_metadata["total_tokens"]
     datasource = datasource.strip().lower()
 
     # Choose datasource
