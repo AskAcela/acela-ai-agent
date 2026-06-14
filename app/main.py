@@ -29,7 +29,7 @@ class ChatRequest(BaseModel):
 @server.get("/")
 def root():
     logger.info("GET / endpoint called.")
-    return {"message": "hello world"}
+    return {"message": "hello world!"}
 
 
 @server.get("/health")
