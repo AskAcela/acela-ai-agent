@@ -1,72 +1,118 @@
-from app.agent import llm
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import HumanMessage, ToolMessage
+
+from app.agent import llm, llm_with_tools
+from app.agent.http_tool import http_request
 from app.logger import logger
 
-from langchain_core.prompts import ChatPromptTemplate
+
+# ---------------------------------------------------------------------------
+# Mode-specific system prompts
+# ---------------------------------------------------------------------------
+
+ASK_PREAMBLE = """You are Acela (ah-sell-ah), a sharp and knowledgeable guide to the Celo blockchain ecosystem. \
+You speak with quiet confidence — direct, clear, never condescending. \
+You care about getting things right, so you stick to what the provided context supports and say so \
+when something is outside your knowledge rather than guessing. \
+Keep answers concise (3–5 sentences unless depth is genuinely needed). \
+Use the HTTP tool only when the context falls short and a specific URL would fill the gap."""
+
+IDEA_PREAMBLE = """You are Acela (ah-sell-ah), a creative strategist for the Celo ecosystem with a builder's mindset. \
+You're enthusiastic without being over the top — you get excited about what's possible on Celo \
+and that energy comes through in how you write. \
+Use the provided context as a launchpad: connect dots, propose angles the user may not have considered, \
+and challenge assumptions where it helps. Favour concrete ideas over vague inspiration. \
+Use the HTTP tool to pull in a project page, repo, or article when it would spark something tangible."""
+
+EXPLORE_PREAMBLE = """You are Acela (ah-sell-ah), a meticulous researcher of the Celo blockchain ecosystem. \
+You're thorough and intellectually honest — you follow threads wherever they lead, \
+acknowledge uncertainty when it exists, and cite every source you draw from. \
+Use the provided context as a starting point, then use the HTTP tool actively to fetch \
+documentation, APIs, GitHub repos, or relevant URLs that deepen your answer. \
+Don't stop at one tool call if more would meaningfully improve the response. \
+Write with the detail and rigour of someone who will be held accountable for their conclusions."""
 
 
-# Preamble 
-generate_preamble = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise."""
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
 
+def make_generate_node(preamble: str, max_tool_iterations: int):
+    """Return a generate node function configured for a specific mode."""
 
-# Prompt
-generate_prompt = ChatPromptTemplate.from_messages(
+    prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", generate_preamble),
+            ("system", preamble),
             ("placeholder", "{messages}"),
-            ("human", "Context:\n{documents}"),
+            ("human", "Context:\n{context}"),
         ]
     )
 
+    tools_map = {http_request.name: http_request}
+
+    def generate(state):
+        messages = state["messages"]
+        documents = state.get("documents", [])
+        total_tokens = state.get("total_tokens", 0)
+
+        if not isinstance(documents, list):
+            documents = [documents]
+
+        context = "\n\n---\n\n".join(
+            d.page_content if hasattr(d, "page_content") else str(d)
+            for d in documents
+        ) or "No context available."
+
+        # Build the initial message list for this generation step
+        gen_messages = prompt.format_messages(messages=messages, context=context)
+
+        generation = None
+        for iteration in range(max_tool_iterations):
+            response = llm_with_tools.invoke(gen_messages)
+            total_tokens += (response.usage_metadata or {}).get("total_tokens", 0)
+
+            if not response.tool_calls:
+                generation = response
+                break
+
+            logger.info(
+                f"Generate node: executing {len(response.tool_calls)} tool call(s) "
+                f"(iteration {iteration + 1}/{max_tool_iterations})"
+            )
+
+            # Append AI message with tool calls, then execute each tool
+            gen_messages.append(response)
+            for tc in response.tool_calls:
+                tool_fn = tools_map.get(tc["name"])
+                result = tool_fn.invoke(tc["args"]) if tool_fn else f"Unknown tool: {tc['name']}"
+                logger.info(f"Tool '{tc['name']}' called with args {tc['args']}")
+                gen_messages.append(
+                    ToolMessage(content=str(result), tool_call_id=tc["id"])
+                )
+
+        if generation is None:
+            # Max iterations reached — force a final answer without tools
+            gen_messages.append(
+                HumanMessage(content="Based on everything gathered, provide your final answer now.")
+            )
+            generation = llm.invoke(gen_messages)
+            total_tokens += (generation.usage_metadata or {}).get("total_tokens", 0)
+
+        logger.info("Generate node: response ready.")
+        return {
+            "generation": generation,
+            "documents": documents,
+            "messages": messages,
+            "total_tokens": total_tokens,
+        }
+
+    return generate
 
 
-# Chain
-rag_chain = generate_prompt | llm
+# ---------------------------------------------------------------------------
+# Mode nodes
+# ---------------------------------------------------------------------------
 
-def generate(state):
-    """
-    Generate answer using the vectorstore
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        state (dict): New key added to state, generation, that contains LLM generation
-    """
-    logger.info("Node: Generate answer using RAG")
-    messages = state["messages"]
-    documents = state["documents"]
-    total_tokens = state["total_tokens"]
-    if not isinstance(documents, list):
-        documents = [documents]
-
-    logger.info(f"Invoking RAG chain with {len(documents)} context document(s)...")
-    # RAG generation
-    generation = rag_chain.invoke({"documents": documents, "messages": messages})
-    total_tokens += generation.usage_metadata["total_tokens"]
-    logger.info("Answer generated successfully.")
-    logger.debug(f"Generation output: {generation}")
-    return {"documents": documents, "messages": messages, "generation": generation, "total_tokens": total_tokens}
-
-def decide_to_generate(state):
-    """
-    Determines whether to generate an answer, or re-generate a question.
-
-    Args:
-        state (dict): The current graph state
-
-    Returns:
-        str: Binary decision for next node to call
-    """
-    logger.info("Decision Node: Decide to generate or web search")
-    filtered_documents = state["documents"]
-
-    if not filtered_documents:
-        # All documents have been filtered check_relevance
-        # We will re-generate a new query
-        logger.info("Decision: No relevant documents found. Routing to web_search.")
-        return "web_search"
-    else:
-        # We have relevant documents, so generate answer
-        logger.info("Decision: Relevant documents found. Routing to generate.")
-        return "generate"
-
+generate_ask = make_generate_node(ASK_PREAMBLE, max_tool_iterations=3)
+generate_idea = make_generate_node(IDEA_PREAMBLE, max_tool_iterations=2)
+generate_explore = make_generate_node(EXPLORE_PREAMBLE, max_tool_iterations=8)

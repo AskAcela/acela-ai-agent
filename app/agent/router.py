@@ -7,15 +7,17 @@ from app.agent import llm
 
 # ----- Router
 
-router_preamble = """You are a query router. The vectorstore contains Celo (Ethereum L2) documentation
-including platform contracts and developer guides.
+router_preamble = """You are a query router. The vectorstore contains Celo (Ethereum L2) documentation \
+including platform contracts, developer guides, SDKs, and ecosystem tooling.
 
-Route to VECTORSTORE for questions about Celo, for example tokens, contracts, SDKs, dapps, or developer tooling.
-Route to WEB SEARCH for real-time data, recent news, or non-Celo topics that need current info.
-Route to LLM FALLBACK for general knowledge questions the LLM can answer without external sources
-(e.g. explaining coding concepts, EVM basics, or general blockchain fundamentals).
+Route to VECTORSTORE for any question that requires specific Celo knowledge — tokens, contracts, \
+dApps, developer tooling, Celo protocols, or anything where the documentation would help.
 
-Return only: "vectorstore", "web_search", or "llm_fallback"."""
+Route to LLM FALLBACK for everything else: greetings, conversational messages, general programming \
+concepts, EVM/blockchain fundamentals that don't need Celo-specific context, or simple questions \
+the model can answer from general knowledge alone.
+
+Return only one word: "vectorstore" or "llm_fallback"."""
 
 route_prompt = ChatPromptTemplate.from_messages(
     [
@@ -54,16 +56,11 @@ def question_router(state):
 
 
 def route_question(state):
-    grading_generation = state["grading_generation"]
-    datasource = StrOutputParser().invoke(grading_generation)
-    
-        # Choose datasource
-    if "web_search" in datasource:
-        logger.info("Routing decision: Route to WEB SEARCH.")
-        return "web_search"
-    elif "vectorstore" in datasource:
-        logger.info("Routing decision: Route to VECTORSTORE (RAG).")
+    datasource = StrOutputParser().invoke(state["grading_generation"])
+
+    if "vectorstore" in datasource:
+        logger.info("Routing decision: VECTORSTORE")
         return "vectorstore"
     else:
-        logger.info("Routing decision: Route to LLM FALLBACK.")
+        logger.info("Routing decision: LLM FALLBACK")
         return "llm_fallback"

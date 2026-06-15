@@ -1,3 +1,3 @@
 # acela ai agent
 
-![alt text](docs/image.png)
+![alt text](docs/architecture.png)

@@ -1,16 +1,16 @@
 from app.logger import logger
 from app.variables import validate_environment
 from app.utils import convert_messages
-from app.agent_graph import createAgentGraph
+from app.agent_graph import ask_graph, idea_graph, explore_graph
+from app.agent.title import generate_title
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Literal
 
 logger.info("Initializing system...")
 
-# Validate environment variables
 validate_environment()
 
 server = FastAPI()
@@ -21,15 +21,22 @@ origins = [
 ]
 server.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,           # Allowed domains
-    allow_credentials=True,         # Allow cookies and auth headers
-    allow_methods=["*"],             # Allow all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],             # Allow all request headers
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-logger.info("FastAPI server created. Loading agent graph...")
-agent_graph = createAgentGraph()
-logger.info("Agent graph loaded successfully.")
+logger.info("FastAPI server created. Agent graphs loaded.")
+
+ChatMode = Literal["ask", "idea", "explore"]
+
+_graphs = {
+    "ask": ask_graph,
+    "idea": idea_graph,
+    "explore": explore_graph,
+}
+
 
 class Message(BaseModel):
     role: str
@@ -40,42 +47,50 @@ class ChatRequest(BaseModel):
     messages: List[Message]
 
 
+class TitleRequest(BaseModel):
+    message: str
+
+
 @server.get("/")
 def root():
-    logger.info("GET / endpoint called.")
     return {"message": "hello world!"}
 
 
 @server.get("/health")
 def health():
-    logger.info("GET /health endpoint called.")
     return {"status": "ok"}
 
 
-@server.post("/chat")
-def chat(req: ChatRequest):
-    logger.info("POST /chat endpoint called.")
-    logger.info(f"Received message history with {len(req.messages)} messages.")
-    
-    history = convert_messages(
-        req.messages
-    )
+@server.post("/title")
+def title(req: TitleRequest):
+    logger.info("POST /title")
+    return {"title": generate_title(req.message)}
 
-    logger.info("Invoking agent graph...")
-    result = agent_graph.invoke(
+
+@server.post("/chat")
+def chat(
+    req: ChatRequest,
+    mode: ChatMode = Query(default="ask"),
+):
+    logger.info(f"POST /chat — mode={mode}, messages={len(req.messages)}")
+
+    history = convert_messages(req.messages)
+    graph = _graphs[mode]
+
+    result = graph.invoke(
         {
             "messages": history,
             "documents": [],
             "generation": "",
-            "total_tokens": 0
+            "total_tokens": 0,
+            "web_search_needed": False,
         }
-    )           
+    )
+
     logger.info("Agent graph execution completed.")
-    logger.debug(f"Response: {result}")
-    
     return {
         "message": result["generation"].content,
         "usage": {
             "total_tokens": result["total_tokens"],
-        }
+        },
     }

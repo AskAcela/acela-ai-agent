@@ -48,7 +48,7 @@ POST /chat
 - `app/agent_graph.py` — LangGraph `StateGraph` definition; wires all nodes and edges
 - `app/agent/__init__.py` — Exports the shared LLM instance (`ChatGoogleGenerativeAI`, `gemini-2.5-flash`)
 - `app/agent/router.py` — Entry node; uses LLM to classify query → `vectorstore | web_search | llm_fallback`
-- `app/agent/retrival_grader.py` — Grades retrieved docs for relevance
+- `app/agent/retrieval_grader.py` — Grades retrieved docs for relevance
 - `app/agent/generate.py` — RAG generation chain; decides whether to retry or fall back
 - `app/agent/hallucination_grader.py` — Checks generation for hallucinations and answer quality
 - `app/agent/web_search.py` — Tavily search integration
