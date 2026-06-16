@@ -31,13 +31,6 @@ logger.info("FastAPI server created. Agent graphs loaded.")
 
 ChatMode = Literal["ask", "idea", "explore"]
 
-_graphs = {
-    "ask": ask_graph,
-    "idea": idea_graph,
-    "explore": explore_graph,
-}
-
-
 class Message(BaseModel):
     role: str
     content: str
@@ -88,8 +81,14 @@ def chat(
     )
 
     logger.info("Agent graph execution completed.")
+    content = result["generation"].content
+    if isinstance(content, list):
+        content = "".join(
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        )
     return {
-        "message": result["generation"].content,
+        "message": content,
         "usage": {
             "total_tokens": result["total_tokens"],
         },
