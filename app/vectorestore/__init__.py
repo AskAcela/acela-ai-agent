@@ -13,7 +13,7 @@ retriever =     None
 def init_vectore_store():
     global vectorstore, retriever
     if vectorstore:
-        return vectorstore
+        return vectorstore, retriever
     logger.info("Initializing Pinecone vector store...")
     google_embedding = GoogleGenerativeAIEmbeddings(model="gemini-embedding-2-preview", output_dimensionality=512)
     # pine cone vectore store
