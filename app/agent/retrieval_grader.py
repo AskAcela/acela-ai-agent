@@ -17,7 +17,8 @@ retrieval_grader_preamble = """You are a grader assessing relevance of a retriev
 If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
 Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question."""
 
-structured_llm_grader = llm.with_structured_output(GradeDocuments)
+# include_raw=True returns {"raw": AIMessage, "parsed": GradeDocuments} so we can track token usage
+structured_llm_grader = llm.with_structured_output(GradeDocuments, include_raw=True)
 
 grade_prompt = ChatPromptTemplate.from_messages(
     [
@@ -46,19 +47,18 @@ def grade_documents(state):
     has_irrelevant = False
 
     for i, d in enumerate(documents):
-        score = retrieval_grader.invoke(
+        result = retrieval_grader.invoke(
             {"question": question, "document": d.page_content}
         )
-        total_tokens += score.usage_metadata["total_tokens"]
+        total_tokens += (result["raw"].usage_metadata or {}).get("total_tokens", 0)
 
-        if score.binary_score == "yes":
+        if result["parsed"].binary_score == "yes":
             logger.info(f"Document {i + 1}: RELEVANT")
             filtered_docs.append(d)
         else:
             logger.info(f"Document {i + 1}: NOT RELEVANT")
             has_irrelevant = True
 
-    # Trigger web search if any doc was irrelevant OR nothing relevant was found
     web_search_needed = has_irrelevant or len(filtered_docs) == 0
 
     logger.info(

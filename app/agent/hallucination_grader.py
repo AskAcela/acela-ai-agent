@@ -19,9 +19,9 @@ class GradeHallucinations(BaseModel):
 hallucination_grader_preamble = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n
 Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
 
-# LLM with function call
+# include_raw=True so we can read usage_metadata from the underlying AIMessage
 structured_hallucination_grader_llm = llm.with_structured_output(
-    GradeHallucinations
+    GradeHallucinations, include_raw=True
 )
 
 # Prompt
@@ -49,7 +49,7 @@ answer_grader_preamble = """You are a grader assessing whether an answer address
 Give a binary score 'yes' or 'no'. Yes' means that the answer resolves the question."""
 
 # LLM with function call
-structured_answer_grader_llm = llm.with_structured_output(GradeAnswer)
+structured_answer_grader_llm = llm.with_structured_output(GradeAnswer, include_raw=True)
 
 # Prompt
 answer_prompt = ChatPromptTemplate.from_messages(
@@ -73,17 +73,18 @@ def grade_generation(state):
     total_tokens = state["total_tokens"]
 
     logger.info("Checking for hallucinations (groundedness)...")
-    score = hallucination_grader.invoke(
+    result = hallucination_grader.invoke(
         {"documents": documents, "generation": generation}
     )
-    total_tokens += score.usage_metadata["total_tokens"]
+    score = result["parsed"]
+    total_tokens += (result["raw"].usage_metadata or {}).get("total_tokens", 0)
     grade = score.binary_score
 
     if grade == "yes":
         logger.info("Generation is grounded in documents. Checking answer quality...")
-        score = answer_grader.invoke({"question": question, "generation": generation})
-        total_tokens += score.usage_metadata["total_tokens"]
-        decision = "useful" if score.binary_score == "yes" else "not useful"
+        result = answer_grader.invoke({"question": question, "generation": generation})
+        total_tokens += (result["raw"].usage_metadata or {}).get("total_tokens", 0)
+        decision = "useful" if result["parsed"].binary_score == "yes" else "not useful"
     else:
         decision = "not supported"
 
