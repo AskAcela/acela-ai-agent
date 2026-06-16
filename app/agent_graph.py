@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from langgraph.graph import END, StateGraph, START
 from typing_extensions import TypedDict
@@ -18,6 +18,7 @@ class GraphState(TypedDict):
     Shared state for all mode graphs.
 
     Attributes:
+        mode: "ask", "idea", or "explore"
         messages: conversation history
         documents: retrieved / searched documents
         generation: final LLM response
@@ -27,6 +28,7 @@ class GraphState(TypedDict):
         web_search_needed: set by grade_documents when any doc is irrelevant
     """
 
+    mode: Literal["ask", "idea", "explore"]
     messages: Annotated[list, add_messages]
     documents: list
     generation: str
@@ -35,6 +37,18 @@ class GraphState(TypedDict):
     hallucination_grade: str
     web_search_needed: bool
 
+def route_graph(state: GraphState):
+    """
+    Route to the appropriate graph based on the mode.
+
+    Args:
+        state (GraphState): The current graph state
+
+    Returns:
+        StateGraph: The next graph to invoke
+    """
+    mode = state["mode"]
+    return mode
 
 # ---------------------------------------------------------------------------
 # Graph factory
@@ -116,3 +130,20 @@ def _create_graph(generate_node, use_hallucination_grading: bool):
 ask_graph = _create_graph(generate_ask, use_hallucination_grading=True)
 idea_graph = _create_graph(generate_idea, use_hallucination_grading=False)
 explore_graph = _create_graph(generate_explore, use_hallucination_grading=True)
+
+graph_parent = StateGraph(GraphState)
+graph_parent.add_node("ask", ask_graph)
+graph_parent.add_node("idea", idea_graph)
+graph_parent.add_node("explore", explore_graph)
+graph_parent.add_conditional_edges(
+    START,
+    route_graph,
+    {
+        "ask": "ask",
+        "idea": "idea",
+        "explore": "explore",
+    },
+)
+
+agent_graph = graph_parent.compile()
+agent_graph.name = "Acela Agent Graph"

@@ -1,7 +1,7 @@
+from app.agent_graph import agent_graph
 from app.logger import logger
 from app.variables import validate_environment
 from app.utils import convert_messages
-from app.agent_graph import ask_graph, idea_graph, explore_graph
 from app.agent.title import generate_title
 
 from fastapi import FastAPI, Query
@@ -75,10 +75,10 @@ def chat(
     logger.info(f"POST /chat — mode={mode}, messages={len(req.messages)}")
 
     history = convert_messages(req.messages)
-    graph = _graphs[mode]
-
-    result = graph.invoke(
+    
+    result = agent_graph.invoke(
         {
+            "mode": mode,
             "messages": history,
             "documents": [],
             "generation": "",
