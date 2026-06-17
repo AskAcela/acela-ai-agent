@@ -1,5 +1,5 @@
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage, SystemMessage
 
 from app.agent import llm, llm_with_tools
 from app.agent.http_tool import http_request
@@ -175,9 +175,89 @@ def make_generate_node(preamble: str, max_tool_iterations: int):
 
 
 # ---------------------------------------------------------------------------
+# Idea mode — guided question list
+# ---------------------------------------------------------------------------
+
+# One question is injected as a system nudge every IDEA_QUESTION_INTERVAL AI turns.
+# Edit this list to change what gets surfaced and in what order.
+IDEA_QUESTION_INTERVAL = 2
+
+IDEA_KEY_QUESTIONS = [
+    # Real problem, real user
+    "What is being built?",
+    "Who specifically is the target user — not 'everyone,' a real segment?",
+    "Why would that user pick this over the obvious existing alternative (the hook/differentiation)?",
+
+    # Category fit
+    "Which bucket does it land in — game, utility app, B2C onboarding, or AI agent with a genuine MiniPay use case?",
+    "Does it trip any of the five named red flags: no real users, reward-farming, no-outcome contract/NFT deploy, ecosystem-engagement app, or solo-builder DeFi?",
+    "If it's lending/staking/yield/custody: is this an established, funded team — or a solo/pre-funding builder who needs the guardrail conversation?",
+
+    # Technical reach
+    "Who's actually building this — solo or team?",
+    "Is what's left realistic to build, ship, and maintain in a few weeks with this team?",
+
+    # Onchain use case
+    "What specific user action produces an actual onchain transaction?",
+    "Will real users be transacting on mainnet, or is this trending toward a demo with no real usage?",
+    "Are contracts deployed and verified on Celo mainnet, or is there at least a credible plan to get there?",
+
+    # Eligibility logistics
+    "Is the repo open source, or at least trackable privately via Talent App?",
+    "Is the project registered (or going to be) on Talent App for the active campaign?",
+    "Is the app already listed on MiniPay? If yes, it's ineligible outright — this program is pre-listing only.",
+
+    # Reward design
+    "If the app pays out anything to users, is that backed by real usage/revenue, or does it look engineered just to inflate the score?",
+
+    # What's next
+    "What's the single highest-leverage thing to do this week?",
+    "What's the builder's own call on the riskiest open question — the conviction-check?",
+]
+
+
+def _idea_generate(state):
+    messages = state["messages"]
+    documents = state.get("documents", [])
+    total_tokens = state.get("total_tokens", 0)
+
+    if not isinstance(documents, list):
+        documents = [documents]
+
+    context = "\n\n---\n\n".join(
+        d.page_content if hasattr(d, "page_content") else str(d)
+        for d in documents
+    ) or "No context available."
+
+    # Determine which key question to surface next based on AI turn count.
+    ai_turn_count = sum(1 for m in messages if isinstance(m, AIMessage))
+    question_index = ai_turn_count // IDEA_QUESTION_INTERVAL
+    nudge = IDEA_KEY_QUESTIONS[question_index] if question_index < len(IDEA_KEY_QUESTIONS) else None
+
+    # Build prompt: system preamble → conversation history → optional nudge → context
+    gen_messages = [SystemMessage(content=IDEA_PREAMBLE)]
+    gen_messages.extend(messages)
+    if nudge:
+        logger.info(f"Idea mode: injecting key question [{question_index}]: '{nudge}'")
+        gen_messages.append(SystemMessage(content=f"Next question to guide toward (weave it in naturally, don't recite it verbatim): {nudge}"))
+    gen_messages.append(HumanMessage(content=f"Context:\n{context}"))
+
+    response = llm.invoke(gen_messages)
+    total_tokens += (response.usage_metadata or {}).get("total_tokens", 0)
+
+    logger.info("Idea generate node: response ready.")
+    return {
+        "generation": response,
+        "documents": documents,
+        "messages": messages,
+        "total_tokens": total_tokens,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Mode nodes
 # ---------------------------------------------------------------------------
 
-generate_ask = make_generate_node(ASK_PREAMBLE, max_tool_iterations=3)
-generate_idea = make_generate_node(IDEA_PREAMBLE, max_tool_iterations=2)
+generate_ask     = make_generate_node(ASK_PREAMBLE,     max_tool_iterations=3)
+generate_idea    = _idea_generate
 generate_explore = make_generate_node(EXPLORE_PREAMBLE, max_tool_iterations=8)
