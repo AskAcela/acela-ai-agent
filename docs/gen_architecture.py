@@ -52,9 +52,9 @@ def arr(x1, y1, x2, y2, label='', color='#444', fs=7, rad=0, lo=(0, 0.18)):
 
 
 # ── Section labels & dividers ────────────────────────────────────────────────
-ax.text(3.2,  9.65, 'Query Analysis',           ha='center', fontsize=11, color=PINK,   fontweight='bold', fontstyle='italic')
-ax.text(8.5,  9.65, 'Retrieval + Hybrid Search', ha='center', fontsize=11, color=BLUE,   fontweight='bold', fontstyle='italic')
-ax.text(18.5, 9.65, 'Generate + Self-Reflection', ha='center', fontsize=11, color=ORANGE, fontweight='bold', fontstyle='italic')
+ax.text(3.2,  9.65, 'Query Analysis',            ha='center', fontsize=11, color=PINK,   fontweight='bold', fontstyle='italic')
+ax.text(8.5,  9.65, 'Retrieval + Hybrid Search',  ha='center', fontsize=11, color=BLUE,   fontweight='bold', fontstyle='italic')
+ax.text(18.5, 9.65, 'Generate + Self-Reflection',  ha='center', fontsize=11, color=ORANGE, fontweight='bold', fontstyle='italic')
 ax.axvline(5.5,  ymin=0.03, ymax=0.94, color='#DDD', lw=1, ls='--', zorder=0)
 ax.axvline(12.5, ymin=0.03, ymax=0.94, color='#DDD', lw=1, ls='--', zorder=0)
 
@@ -121,31 +121,36 @@ ax.text(14.45, 9.15, 'idea: no grading', fontsize=6.5, color=PURPLE, style='ital
 ax.text(14.0, 9.9, 'END (idea)', ha='center', fontsize=9, fontweight='bold', color=PURPLE)
 
 # ── ask / explore → Grade Generation ─────────────────────────────────────────
-arr(14.58, 8, 16.5, 8, label='ask / explore', color='#555', fs=7)
+arr(14.58, 8, 16.48, 8, label='ask / explore', color='#555', fs=7)
 draw_diamond(17.3, 8, w=0.82, h=0.52, color=TEAL, label='Grade\nGeneration', fs=7.5)
 
-# grounded? → Answers Question?
-arr(18.12, 8, 19.3, 8, label='grounded?', color='#555', fs=6.5, lo=(0, 0.22))
-draw_diamond(20.1, 8, w=0.8, h=0.5, color=TEAL, label='Answers\nQuestion?', fs=7)
+# ── useful → Answer (direct from Grade Generation) ───────────────────────────
+arr(18.12, 8, 19.2, 8, color=GREEN)
+ax.text(18.65, 8.22, 'useful', fontsize=7, color=GREEN, style='italic', ha='center')
+ax.text(19.25, 8, 'Answer', va='center', fontsize=10, fontweight='bold', color=GREEN)
 
-# yes → Answer END
-arr(20.9, 8, 21.6, 8, color=GREEN)
-ax.text(20.9, 8.28, 'yes', fontsize=7, color=GREEN, style='italic')
-ax.text(21.65, 8, 'Answer', va='center', fontsize=10, fontweight='bold', color=GREEN)
-
-# not useful → Web Search (big back-loop)
-ax.annotate('', xy=(8.75, 4.48), xytext=(20.1, 7.5),
+# ── Grade Generation → Query Rewriter (not useful / hallucination) ────────────
+ax.annotate('', xy=(19.5, 5.52), xytext=(17.7, 7.52),
             arrowprops=dict(arrowstyle='->', color=RED, lw=1.3,
-                            connectionstyle='arc3,rad=0.38'))
-ax.text(15.0, 2.85, 'no (not useful)  →  web search', fontsize=7.5, color=RED,
+                            connectionstyle='arc3,rad=-0.18'))
+ax.text(19.15, 6.8, 'not useful /\nhallucination', fontsize=6.5, color=RED,
         style='italic', ha='center')
-ax.text(19.7, 7.4, 'no', fontsize=7, color=RED, style='italic', ha='right')
 
-# hallucination → retry generate
-ax.annotate('', xy=(14.58, 8.1), xytext=(17.3, 8.52),
+# ── Query Rewriter node ───────────────────────────────────────────────────────
+draw_circle(19.5, 5, r=0.55, color=PURPLE, label='Query\nRewriter', fs=8.5)
+
+# ── Query Rewriter → Web Search (not useful → web search back-loop) ───────────
+ax.annotate('', xy=(8.75, 4.48), xytext=(18.96, 5.0),
             arrowprops=dict(arrowstyle='->', color=RED, lw=1.3,
-                            connectionstyle='arc3,rad=-0.4'))
-ax.text(15.9, 9.38, 'hallucination  →  retry', fontsize=7, color=RED,
+                            connectionstyle='arc3,rad=0.3'))
+ax.text(14.2, 3.0, 'not useful  →  web search', fontsize=7.5, color=RED,
+        style='italic', ha='center')
+
+# ── Query Rewriter → Generate (hallucination → retry) ─────────────────────────
+ax.annotate('', xy=(14.58, 7.88), xytext=(19.0, 5.47),
+            arrowprops=dict(arrowstyle='->', color=PURPLE, lw=1.3,
+                            connectionstyle='arc3,rad=-0.32'))
+ax.text(17.3, 7.05, 'hallucination\n→ retry', fontsize=6.5, color=PURPLE,
         style='italic', ha='center')
 
 # ── Title ─────────────────────────────────────────────────────────────────────

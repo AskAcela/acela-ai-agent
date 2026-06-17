@@ -11,6 +11,7 @@ from app.agent.generate import generate_ask, generate_idea, generate_explore
 from app.agent.llm_fallback import llm_fallback
 from app.agent.router import question_router, route_question
 from app.agent.hallucination_grader import grade_generation, route_generation
+from app.agent.query_rewriter import query_rewriter, route_after_rewrite
 
 
 class GraphState(TypedDict):
@@ -54,71 +55,56 @@ def route_graph(state: GraphState):
 # Graph factory
 # ---------------------------------------------------------------------------
 
-def _create_graph(generate_node, use_hallucination_grading: bool):
-    """
-    Build and compile a mode-specific StateGraph.
+def _create_graph(mode: Literal["ask", "idea", "explore"]):
+    generate_node = {"ask": generate_ask, "idea": generate_idea, "explore": generate_explore}[mode]
 
-    All modes share the same topology up to the generate node:
-      START → question_router → vectorstore path | llm_fallback
-
-    Vectorstore path:
-      retrieve → grade_documents → [web_search if any irrelevant] → generate_node
-
-    Post-generate:
-      ask / explore  → grade_generation → route_generation → END / web_search / generate
-      idea           → END directly
-    """
     workflow = StateGraph(GraphState)
 
-    # --- Shared nodes ---
     workflow.add_node("question_router", question_router)
     workflow.add_node("retrieve", retrieve)
     workflow.add_node("grade_documents", grade_documents)
-    workflow.add_node("web_search", web_search)
     workflow.add_node("generate", generate_node)
-    workflow.add_node("llm_fallback", llm_fallback)
 
-    # --- Entry ---
     workflow.add_edge(START, "question_router")
-    workflow.add_conditional_edges(
-        "question_router",
-        route_question,
-        {
-            "vectorstore": "retrieve",
-            "llm_fallback": "llm_fallback",
-        },
-    )
-
-    # --- Vectorstore path ---
     workflow.add_edge("retrieve", "grade_documents")
-    workflow.add_conditional_edges(
-        "grade_documents",
-        decide_to_web_search,
-        {
-            "web_search": "web_search",
-            "generate": "generate",
-        },
-    )
-    workflow.add_edge("web_search", "generate")
 
-    # --- Fallback ---
-    workflow.add_edge("llm_fallback", END)
+    if mode == "idea":
+        # All queries use the idea prompt.
+        # llm_fallback-classified messages skip retrieval and hit generate with empty context.
+        # No web search, no hallucination grading, no retry loop.
+        workflow.add_conditional_edges(
+            "question_router", route_question,
+            {"vectorstore": "generate", "llm_fallback": "generate"}, # skip retrieval and hit generate with empty context
+        )
+        workflow.add_edge("grade_documents", "generate") 
+        workflow.add_edge("generate", END)
 
-    # --- Post-generate ---
-    if use_hallucination_grading:
+    else:
+        # ask / explore: full pipeline — web search fallback, grading, rewrite-and-retry.
+        workflow.add_node("llm_fallback", llm_fallback)
+        workflow.add_node("web_search", web_search)
         workflow.add_node("grade_generation", grade_generation)
+        workflow.add_node("query_rewriter", query_rewriter)
+
+        workflow.add_conditional_edges(
+            "question_router", route_question,
+            {"vectorstore": "retrieve", "llm_fallback": "llm_fallback"},
+        )
+        workflow.add_conditional_edges(
+            "grade_documents", decide_to_web_search,
+            {"web_search": "web_search", "generate": "generate"},
+        )
+        workflow.add_edge("web_search", "generate")
+        workflow.add_edge("llm_fallback", END)
         workflow.add_edge("generate", "grade_generation")
         workflow.add_conditional_edges(
-            "grade_generation",
-            route_generation,
-            {
-                "useful": END,
-                "not useful": "web_search",   # answer doesn't address question → web search
-                "not supported": "generate",  # hallucination → regenerate
-            },
+            "grade_generation", route_generation,
+            {"useful": END, "not useful": "query_rewriter", "not supported": "query_rewriter"},
         )
-    else:
-        workflow.add_edge("generate", END)
+        workflow.add_conditional_edges(
+            "query_rewriter", route_after_rewrite,
+            {"web_search": "web_search", "generate": "generate"},
+        )
 
     return workflow.compile()
 
@@ -127,9 +113,9 @@ def _create_graph(generate_node, use_hallucination_grading: bool):
 # Compiled graphs (created at import time)
 # ---------------------------------------------------------------------------
 
-ask_graph = _create_graph(generate_ask, use_hallucination_grading=True)
-idea_graph = _create_graph(generate_idea, use_hallucination_grading=False)
-explore_graph = _create_graph(generate_explore, use_hallucination_grading=True)
+ask_graph     = _create_graph("ask")
+idea_graph    = _create_graph("idea")
+explore_graph = _create_graph("explore")
 
 graph_parent = StateGraph(GraphState)
 graph_parent.add_node("ask", ask_graph)

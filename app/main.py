@@ -3,6 +3,7 @@ from app.logger import logger
 from app.variables import validate_environment
 from app.utils import convert_messages
 from app.agent.title import generate_title
+from app.agent.summarize import generate_summary
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,6 +59,17 @@ def health():
 def title(req: TitleRequest):
     logger.info("POST /title")
     return {"title": generate_title(req.message)}
+
+
+@server.post("/idea/summary")
+def idea_summary(req: ChatRequest):
+    logger.info(f"POST /idea/summary — messages={len(req.messages)}")
+    history = convert_messages(req.messages)
+    summary, total_tokens = generate_summary(history)
+    return {
+        "summary": summary,
+        "usage": {"total_tokens": total_tokens},
+    }
 
 
 @server.post("/chat")

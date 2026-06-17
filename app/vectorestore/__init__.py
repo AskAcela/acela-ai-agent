@@ -73,7 +73,6 @@ def retrieve(state):
     logger.info(f"Retrieving documents for query: {question}")
 
     # Retrieval
-    documents = retriever.invoke(question)
+    documents = retriever.invoke(question, top_k=3)
     logger.info(f"Retrieved {len(documents)} documents.")
     return {"documents": documents, "messages": state["messages"]}
-
