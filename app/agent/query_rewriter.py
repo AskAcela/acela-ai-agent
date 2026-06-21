@@ -3,6 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.agent import llm
 from app.logger import logger
+from app.utils import content_to_text
 
 REWRITER_PREAMBLE = """You are a query rewriter specializing in the Celo blockchain ecosystem. \
 Rephrase the user's question to make it clearer, more specific, and better suited for \
@@ -24,7 +25,7 @@ def query_rewriter(state):
     logger.info(f"Rewriting query: '{question}'")
 
     response = llm.invoke(_rewriter_prompt.format_messages(question=question))
-    rewritten = response.content.strip()
+    rewritten = content_to_text(response.content).strip()
     total_tokens += (response.usage_metadata or {}).get("total_tokens", 0)
 
     logger.info(f"Rewritten query: '{rewritten}'")

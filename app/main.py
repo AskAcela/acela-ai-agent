@@ -1,7 +1,7 @@
 from app.agent_graph import agent_graph
 from app.logger import logger
 from app.variables import validate_environment
-from app.utils import convert_messages
+from app.utils import convert_messages, content_to_text
 from app.agent.title import generate_title
 from app.agent.summarize import generate_summary
 
@@ -110,12 +110,7 @@ def chat(
     )
 
     logger.info("Agent graph execution completed.")
-    content = result["generation"].content
-    if isinstance(content, list):
-        content = "".join(
-            block.get("text", "") if isinstance(block, dict) else str(block)
-            for block in content
-        )
+    content = content_to_text(result["generation"].content)
     return {
         "message": content,
         "usage": {

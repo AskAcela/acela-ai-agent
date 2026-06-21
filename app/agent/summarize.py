@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.agent import llm
 from app.logger import logger
+from app.utils import content_to_text
 
 _SUMMARY_PREAMBLE = """You are Acela. This session is ending. Write a short recap for the builder to keep — a record, not another coaching pass.
 
@@ -40,10 +41,4 @@ def generate_summary(messages: list) -> tuple[str, int]:
     logger.info(f"Generating idea session summary over {len(messages)} messages")
     response = _summary_chain.invoke({"messages": messages})
     total_tokens = (response.usage_metadata or {}).get("total_tokens", 0)
-    content = response.content
-    if isinstance(content, list):
-        content = "".join(
-            block.get("text", "") if isinstance(block, dict) else str(block)
-            for block in content
-        )
-    return content.strip(), total_tokens
+    return content_to_text(response.content).strip(), total_tokens
