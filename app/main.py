@@ -76,11 +76,27 @@ def idea_summary(req: ChatRequest):
 def chat(
     req: ChatRequest,
     mode: ChatMode = Query(default="ask"),
+    conversation_id: str | None = Query(default=None),
 ):
-    logger.info(f"POST /chat — mode={mode}, messages={len(req.messages)}")
+    logger.info(
+        f"POST /chat — mode={mode}, conversation_id={conversation_id}, "
+        f"messages={len(req.messages)}"
+    )
 
     history = convert_messages(req.messages)
-    
+
+    config = None
+    if conversation_id:
+        # LangSmith groups runs into a thread when a thread identifier is present
+        # in the run metadata. Setting it here lets threads be found by conversation.
+        config = {
+            "metadata": {
+                "conversation_id": conversation_id,
+                "thread_id": conversation_id,
+                "session_id": conversation_id,
+            }
+        }
+
     result = agent_graph.invoke(
         {
             "mode": mode,
@@ -89,7 +105,8 @@ def chat(
             "generation": "",
             "total_tokens": 0,
             "web_search_needed": False,
-        }
+        },
+        config=config,
     )
 
     logger.info("Agent graph execution completed.")
