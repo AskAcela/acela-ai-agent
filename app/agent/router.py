@@ -7,15 +7,12 @@ from app.agent import llm
 
 # ----- Router
 
-router_preamble = """You are a query router. The vectorstore contains Celo (Ethereum L2) documentation \
-including platform contracts, developer guides, SDKs, and ecosystem tooling.
+router_preamble = """You are a query router.
 
 Route to VECTORSTORE for any question that requires specific Celo knowledge — tokens, contracts, \
-dApps, developer tooling, Celo protocols, or anything where the documentation would help.
+dApps, developer tooling, Celo protocols, general programming concepts, EVM/blockchain fundamentals that don't need Celo-specific context, or anything where the documentation would help.
 
-Route to LLM FALLBACK for everything else: greetings, conversational messages, general programming \
-concepts, EVM/blockchain fundamentals that don't need Celo-specific context, or simple questions \
-the model can answer from general knowledge alone.
+Route to LLM FALLBACK for everything else: greetings, conversational messages, or simple questions the model can answer from general knowledge alone.
 
 Return only one word: "vectorstore" or "llm_fallback"."""
 
